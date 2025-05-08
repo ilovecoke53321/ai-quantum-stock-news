@@ -1,35 +1,20 @@
-from flask import Flask, Response
-import openai
-import datetime
+from flask import Flask
 import yfinance as yf
+import openai
+from datetime import datetime
 
 app = Flask(__name__)
+openai.api_key = "sk-請填入你的金鑰"
 
-# OpenAI GPT API 金鑰
-openai.api_key = "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"
-
-STOCKS = {
-    "AI": {
-        "TW": [("世芯-KY", "3661.TW"), ("創意", "3443.TW"), ("智原", "3035.TW")],
-        "US": [("NVIDIA", "NVDA"), ("AMD", "AMD"), ("Palantir", "PLTR")]
-    },
-    "QC": {
-        "TW": [("聯發科", "2454.TW"), ("光寶科", "2301.TW"), ("穩懋", "3105.TW")],
-        "US": [("IonQ", "IONQ"), ("Rigetti", "RGTI"), ("D-Wave", "QBTS")]
-    }
-}
-
-def fetch_price(stock_list):
-    result = []
-    for name, code in stock_list:
-        try:
-            data = yf.Ticker(code)
-            price = data.history(period="1d")['Close'].iloc[-1]
-            vol = data.history(period="1d")['Volume'].iloc[-1]
-            result.append(f"{name}({code}): 股價 {round(price, 2)}，成交量 {int(vol/1e6)}M")
-        except:
-            result.append(f"{name}({code}): 無法取得資料")
-    return result
+def get_stock_price(symbol):
+    try:
+        stock = yf.Ticker(symbol)
+        todays_data = stock.history(period="1d")
+        price = todays_data['Close'][0]
+        volume = todays_data['Volume'][0]
+        return f"股價 {round(price, 2)}，成交量 {round(volume/1_000_000)}M"
+    except:
+        return "無法取得資料"
 
 def get_gpt_news():
     prompt = "請用中文摘要今天 AI 技術與量子電腦領域的全球重大新聞..."
@@ -41,31 +26,35 @@ def get_gpt_news():
         return response.choices[0].message.content.strip()
     except Exception as e:
         return "【GPT 錯誤】" + str(e)
-#def get_gpt_news():
- #   prompt = "請用中文摘要今天 AI 技術與量子電腦領域的全球重大新聞，各寫 1 條，不要贅詞，50 字內即可。"
-#    try:
-#        response = openai.ChatCompletion.create(
-#            model="gpt-4",
- #           messages=[{"role": "user", "content": prompt}]
- #       )
-  #      return response.choices[0].message.content.strip()
-  #  except:
-  #      return "無法取得 GPT 新聞摘要。"
 
 @app.route("/daily_report", methods=["GET"])
 def daily_report():
-    today = datetime.datetime.now().strftime("%Y/%m/%d")
-    content = f"[{today} 股市追蹤]\n\n"
-    for domain in ["AI", "QC"]:
-        content += f"【{domain} 領域】\n"
-        for region in ["TW", "US"]:
-            area = "國內" if region == "TW" else "國外"
-            content += f"{area}：\n"
-            content += "\n".join(fetch_price(STOCKS[domain][region])) + "\n\n"
-    content += "【每日新聞摘要】\n"
-    content += get_gpt_news() + "\n"
-    content += "\n來源：Yahoo Finance, OpenAI GPT-4"
-    return Response(content, mimetype='text/plain')
+    date = datetime.today().strftime("%Y/%m/%d")
+    output = [f"[{date} 股市追蹤]\n"]
+
+    output.append("【AI 領域】\n國內：")
+    for stock in ["3661.TW", "3443.TW", "3035.TW"]:
+        output.append(f"世芯-KY({stock})：{get_stock_price(stock)}" if stock == "3661.TW" else
+                      f"創意({stock})：{get_stock_price(stock)}" if stock == "3443.TW" else
+                      f"智原({stock})：{get_stock_price(stock)}")
+
+    output.append("\n國外：")
+    for name, symbol in [("NVIDIA", "NVDA"), ("AMD", "AMD"), ("Palantir", "PLTR")]:
+        output.append(f"{name}({symbol})：{get_stock_price(symbol)}")
+
+    output.append("\n【QC 領域】\n國內：")
+    for name, symbol in [("聯發科", "2454.TW"), ("光寶科", "2301.TW"), ("穩懋", "3105.TW")]:
+        output.append(f"{name}({symbol})：{get_stock_price(symbol)}")
+
+    output.append("\n國外：")
+    for name, symbol in [("IonQ", "IONQ"), ("Rigetti", "RGTI"), ("D-Wave", "QBTS")]:
+        output.append(f"{name}({symbol})：{get_stock_price(symbol)}")
+
+    output.append("\n【每日新聞摘要】")
+    output.append(get_gpt_news())
+    output.append("\n來源：Yahoo Finance, OpenAI GPT-4")
+
+    return "\n".join(output)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
