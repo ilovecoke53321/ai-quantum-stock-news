@@ -31,16 +31,18 @@ def fetch_price(stock_list):
             result.append(f"{name}({code}): 無法取得資料")
     return result
 
-def get_gpt_news():
-    prompt = "請用中文摘要今天 AI 技術與量子電腦領域的全球重大新聞，各寫 1 條，不要贅詞，50 字內即可。"
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.choices[0].message.content.strip()
-    except:
-        return "無法取得 GPT 新聞摘要。"
+    except Exception as e:
+        return f"錯誤：{e}"
+#def get_gpt_news():
+ #   prompt = "請用中文摘要今天 AI 技術與量子電腦領域的全球重大新聞，各寫 1 條，不要贅詞，50 字內即可。"
+#    try:
+#        response = openai.ChatCompletion.create(
+#            model="gpt-4",
+ #           messages=[{"role": "user", "content": prompt}]
+ #       )
+  #      return response.choices[0].message.content.strip()
+  #  except:
+  #      return "無法取得 GPT 新聞摘要。"
 
 @app.route("/daily_report", methods=["GET"])
 def daily_report():
